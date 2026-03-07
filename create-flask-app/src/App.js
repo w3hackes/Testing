@@ -19,7 +19,10 @@ function App() {
 
     const handleGo = async () => {
         const payload = { bloodType, rhFactor, amount: amount ? Number(amount) : 0 };
-        const endpoint = mode === 'withdraw' ? '/api/withdraw' : '/api/deposit';
+        const endpoint =
+            mode === 'withdraw'
+                ? 'http://localhost:5000/api/withdraw'
+                : 'http://localhost:5000/api/deposit';
         setLoading(true);
         try {
             const res = await fetch(endpoint, {
@@ -96,8 +99,8 @@ function App() {
                             </div>
 
                             <div className="form-row">
-                                <button className="btn primary" onClick={handleGo} disabled={loading}>
-                                    {loading ? 'Sending…' : 'Go'}
+                                <button className="btn primary" onClick={handleGo} disabled={loading}> GO
+
                                 </button>
                             </div>
                         </div>
