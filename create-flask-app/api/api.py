@@ -4,6 +4,7 @@ from flask_cors import CORS
 def create_app():
     app = Flask(__name__)
     CORS(app)  # <-- this is required
+    type_a = 100
 
     @app.route("/")
     def home():
@@ -11,13 +12,15 @@ def create_app():
 
     @app.route("/api/deposit", methods=["POST"])
     def deposit():
-        data = request.get_json()
-        return jsonify({"you_sent": data})
+        nonlocal type_a
+        type_a += 10
+        return jsonify(type_a)
 
     @app.route("/api/withdraw", methods=["POST"])
     def withdraw():
-        data = request.get_json()
-        return jsonify({"you_sent": data})
+        nonlocal type_a
+        type_a -= 10
+        return jsonify(type_a)
 
     return app
 
