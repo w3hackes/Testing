@@ -1,5 +1,14 @@
 .App {
   text-align: center;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-center {
+  width: 100%;
+  max-width: 420px;
 }
 
 .App-logo {
@@ -15,17 +24,47 @@
 
 .App-header {
   background-color: #282c34;
-  min-height: 100vh;
+  padding: 2rem;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   font-size: calc(10px + 2vmin);
   color: white;
 }
 
 .App-link {
   color: #61dafb;
+}
+
+.form-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 1.5rem;
+  width: 100%;
+  max-width: 360px;
+}
+
+.form-container .form-row {
+  width: 100%;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.form-container .form-row label {
+  font-size: 0.95rem;
+}
+
+.form-container .form-row select,
+.form-container .form-row input {
+  width: 100%;
+  max-width: 280px;
+  padding: 0.5rem;
+  font-size: 1rem;
 }
 
 @keyframes App-logo-spin {
