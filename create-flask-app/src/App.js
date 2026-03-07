@@ -91,7 +91,7 @@ function App() {
                             </div>
 
                             <div className="form-row">
-                                <label htmlFor="amount">Amount (ml):</label>
+                                <label htmlFor="amount">Amount (units):</label>
                                 <input id="amount" type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)} />
                             </div>
 
