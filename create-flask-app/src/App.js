@@ -15,6 +15,7 @@ function App() {
         <div className="App">
 
             {/* Professional heading */}
+
             <div className="main-heading">
                 <h1>Blood Bank Management System</h1>
                 <p className="subtext">Manage donations, withdrawals, and blood inventory</p>
@@ -31,6 +32,15 @@ function App() {
             </header>
             <p> deposit </p>
             <p> withdraw</p>
+            <label for= "Blood type"> Choose the donors blood type:</label>
+            <input list = "Blood types" id = "Blood type" name = "blood Type" />
+            <datalist id = "Blood type">
+                <option value ="A"></option>
+                <option value ="B"></option>
+                <option value ="AB"></option>
+                <option value = "O"></option>
+            </datalist>
+
         </div>
     );
 }
