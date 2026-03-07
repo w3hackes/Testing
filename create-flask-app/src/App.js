@@ -34,6 +34,9 @@ function App() {
 
     return (
         <div className="App">
+
+            {/* Professional heading */}
+
             <div className="main-heading">
                 <h1>Blood Bank Management System</h1>
                 <h1>{data ? JSON.stringify(data) : "No data yet"}</h1>
@@ -53,6 +56,17 @@ function App() {
                     </button>
                 </div>
             </header>
+            <p> deposit </p>
+            <p> withdraw</p>
+            <label for= "blood-type"> Choose the donors blood type:</label>
+            <input list = "blood-types" id = "blood-type" name = "blood-type" />
+            <select name = "blood-type">
+                <option value ="A"></option>
+                <option value ="B"></option>
+                <option value ="AB"></option>
+                <option value = "O"></option>
+            </select>
+
         </div>
     );
 }
