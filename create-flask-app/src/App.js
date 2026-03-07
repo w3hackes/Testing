@@ -32,14 +32,14 @@ function App() {
             </header>
             <p> deposit </p>
             <p> withdraw</p>
-            <label for= "Blood type"> Choose the donors blood type:</label>
-            <input list = "Blood types" id = "Blood type" name = "blood Type" />
-            <datalist id = "Blood type">
+            <label for= "blood-type"> Choose the donors blood type:</label>
+            <input list = "blood-types" id = "blood-type" name = "blood-type" />
+            <select name = "blood-type">
                 <option value ="A"></option>
                 <option value ="B"></option>
                 <option value ="AB"></option>
                 <option value = "O"></option>
-            </datalist>
+            </select>
 
         </div>
     );
