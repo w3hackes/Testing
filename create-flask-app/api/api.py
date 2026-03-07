@@ -22,6 +22,24 @@ def create_app():
         type_a -= 10
         return jsonify(type_a)
 
+    @app.route("/api/withdraw", methods=["POST"])
+    def withdraw():
+        data = request.get_json() or {}
+        blood_type = data.get("bloodType", "")
+        rh_factor = data.get("rhFactor", "")
+        amount = data.get("amount", 0)
+        # TODO: update inventory, validate, etc.
+        return jsonify({"ok": True, "action": "withdraw", "bloodType": blood_type, "rhFactor": rh_factor, "amount": amount})
+
+    @app.route("/api/deposit", methods=["POST"])
+    def deposit():
+        data = request.get_json() or {}
+        blood_type = data.get("bloodType", "")
+        rh_factor = data.get("rhFactor", "")
+        amount = data.get("amount", 0)
+        # TODO: update inventory, validate, etc.
+        return jsonify({"ok": True, "action": "deposit", "bloodType": blood_type, "rhFactor": rh_factor, "amount": amount})
+
     return app
 
 if __name__ == "__main__":

@@ -1,77 +1,207 @@
+/* --- Layout --- */
 .App {
   text-align: center;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 1.5rem;
 }
 
 .app-center {
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+/* --- Main heading --- */
+.main-heading {
+  margin-bottom: 1.5rem;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.main-heading h1 {
+  font-size: clamp(1.5rem, 4vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+  margin: 0 0 0.35rem 0;
+  line-height: 1.25;
 }
 
+.main-heading .subtext {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* --- Card (header) --- */
 .App-header {
-  background-color: #282c34;
-  padding: 2rem;
-  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.97);
+  color: #0f172a;
+  padding: 2rem 1.75rem;
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  backdrop-filter: blur(12px);
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  margin: 0 0 1.25rem 0;
+}
+
+/* --- Buttons --- */
+.button-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn {
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.7rem 1.4rem;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(185, 28, 28, 0.4);
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 6px 20px rgba(185, 28, 28, 0.45);
+}
+
+.btn.primary-green {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35);
+}
+
+.btn.primary-green:hover:not(:disabled) {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 6px 20px rgba(5, 150, 105, 0.4);
+}
+
+.btn.secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.btn.secondary:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+/* --- Form --- */
+.form-container {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: 1.75rem;
+  width: 100%;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.form-container .form-row {
+  margin-bottom: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.form-container .form-row:last-of-type {
+  margin-bottom: 0;
+  margin-top: 0.25rem;
+}
+
+.form-container .form-row label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  text-align: left;
+}
+
+.form-container .form-row select,
+.form-container .form-row input {
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: #0f172a;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-container .form-row select:hover,
+.form-container .form-row input:hover {
+  border-color: #cbd5e1;
+}
+
+.form-container .form-row select:focus,
+.form-container .form-row input:focus {
+  outline: none;
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.2);
+}
+
+.form-container .form-row select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.1rem;
+  padding-right: 2.5rem;
+}
+
+.form-container .btn.primary {
+  width: 100%;
+  padding: 0.75rem 1.25rem;
+  margin-top: 0.25rem;
+}
+
+/* --- Legacy (keep for any other usage) --- */
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
 }
 
 .App-link {
   color: #61dafb;
 }
 
-.form-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: 1.5rem;
-  width: 100%;
-  max-width: 360px;
-}
-
-.form-container .form-row {
-  width: 100%;
-  margin-bottom: 1rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.form-container .form-row label {
-  font-size: 0.95rem;
-}
-
-.form-container .form-row select,
-.form-container .form-row input {
-  width: 100%;
-  max-width: 280px;
-  padding: 0.5rem;
-  font-size: 1rem;
-}
-
 @keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
