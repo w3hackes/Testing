@@ -1,22 +1,42 @@
-import './App.css';
+import { useState } from "react";
+import "./App.css";
 
 function App() {
-    let withdraw = 0;
-    let deposit = 0;
+    const [withdraw, setWithdraw] = useState(0);
+    const [deposit, setDeposit] = useState(0);
+    const [data, setData] = useState(null);
 
-    const withDrawBlood = () => {
-        withdraw++;
-    }
-    const depositBlood = () => {
-        deposit++;
-    }
+    const withDrawBlood = async () => {
+        setWithdraw(withdraw + 1);
+
+        const res = await fetch("http://localhost:5000/api/withdraw", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "withdraw" })
+        });
+
+        const json = await res.json();
+        setData(json);
+    };
+
+    const depositBlood = async () => {
+        setDeposit(deposit + 1);
+
+        const res = await fetch("http://localhost:5000/api/deposit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "deposit" })
+        });
+
+        const json = await res.json();
+        setData(json);
+    };
 
     return (
         <div className="App">
-
-            {/* Professional heading */}
             <div className="main-heading">
                 <h1>Blood Bank Management System</h1>
+                <h1>{data ? JSON.stringify(data) : "No data yet"}</h1>
                 <p className="subtext">Manage donations, withdrawals, and blood inventory</p>
             </div>
 
@@ -24,13 +44,15 @@ function App() {
                 <p className="section-title">Blood Actions</p>
 
                 <div className="button-row">
-                    <button className="btn primary" onClick = {withDrawBlood}>Withdraw</button>
+                    <button className="btn primary" onClick={withDrawBlood}>
+                        Withdraw
+                    </button>
 
-                    <button className="btn secondary" onClick = {depositBlood}> Donate</button>
+                    <button className="btn secondary" onClick={depositBlood}>
+                        Donate
+                    </button>
                 </div>
             </header>
-            <p> deposit </p>
-            <p> withdraw</p>
         </div>
     );
 }
