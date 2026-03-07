@@ -96,7 +96,7 @@ function App() {
                             </div>
 
                             <div className="form-row">
-                                <button className="btn primary" onClick={handleGo} disabled={loading}>
+                                <button className="btn go" onClick={handleGo} disabled={loading}>
                                     {loading ? 'Sending…' : 'Go'}
                                 </button>
                             </div>

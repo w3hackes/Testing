@@ -97,14 +97,24 @@
 }
 
 .btn.right {
-  background: linear-gradient(135deg, #3b1cb9 0%, #3b1cb9 100%);
+  background: linear-gradient(135deg, #3b1cb9 0%, #3716bd 100%);
   color: #fff;
   box-shadow: 0 4px 14px rgba(28, 31, 185, 0.45);
 }
 
 .btn.right:hover:not(:disabled) {
-  background: linear-gradient(135deg, #381ea0 0%, #3a1dad 100%);
+  background: linear-gradient(135deg, #8d72f8 0%, #7658ed 100%);
   box-shadow: 0 6px 20px rgba(28, 31, 185, 0.45);
+}
+
+.btn.go {
+  background: linear-gradient(135deg, #1b8025 0%, #1adb4d 100%);
+  box-shadow: 0 4px 14px rgba(28, 185, 31, 0.45);
+}
+
+.btn.go:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3ecc43 0%, #43e36e 100%);
+  box-shadow: 0 6px 20px rgba(25, 123, 30, 0.45);
 }
 
 
