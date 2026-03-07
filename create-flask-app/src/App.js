@@ -50,20 +50,20 @@ function App() {
                     <div className="button-row">
                         {mode === null && (
                             <>
-                                <button className="btn primary" onClick={withDrawBlood}>Withdraw</button>
-                                <button className="btn secondary" onClick={depositBlood}>Donate</button>
+                                <button className="btn left" onClick={withDrawBlood}>Withdraw</button>
+                                <button className="btn right" onClick={depositBlood}>Donate</button>
                             </>
                         )}
                         {mode === 'withdraw' && (
                             <>
-                                <button className="btn primary" onClick={withDrawBlood}>Withdraw</button>
+                                <button className="btn left" onClick={withDrawBlood}>Withdraw</button>
                                 <button className="btn secondary" onClick={goBack}>Back</button>
                             </>
                         )}
                         {mode === 'deposit' && (
                             <>
+                                <button className="btn right" onClick={depositBlood}>Donate</button>
                                 <button className="btn secondary" onClick={goBack}>Back</button>
-                                <button className="btn primary-green" onClick={depositBlood}>Donate</button>
                             </>
                         )}
                     </div>
