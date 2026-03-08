@@ -647,10 +647,45 @@ function DonationMap({ preloadedTypes, onPreloadConsumed }) {
   const sorted = selectedLoc ? [...visible].sort((a, b) => a.distance - b.distance) : visible;
   const nearest = selectedLoc ? sorted[0] : null;
 
-  const handleRequestSubmit = (payload) => {
-    setSubmittedReqs(prev => [...prev, { ...payload, id: Date.now() }]);
-    console.log('Blood request submitted:', payload);
-    // TODO: POST to /api/facility-request
+  const handleRequestSubmit = async (payload) => {
+    try {
+      const res = await fetch('/api/facility-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        // Show error in the submitted requests log with a failed status
+        setSubmittedReqs(prev => [...prev, {
+          ...payload,
+          id: Date.now(),
+          status: 'failed',
+          message: data.message || 'Request could not be fulfilled.',
+        }]);
+        return;
+      }
+
+      // Success — add to log with allocated breakdown
+      setSubmittedReqs(prev => [...prev, {
+        ...payload,
+        id: Date.now(),
+        status: 'success',
+        allocated: data.allocated,
+        message: data.message,
+      }]);
+
+    } catch (err) {
+      // Network error
+      setSubmittedReqs(prev => [...prev, {
+        ...payload,
+        id: Date.now(),
+        status: 'failed',
+        message: 'Network error — could not reach the server.',
+      }]);
+    }
   };
 
   return (
@@ -828,20 +863,24 @@ function DonationMap({ preloadedTypes, onPreloadConsumed }) {
 
       {/* Submitted requests log */}
       {submittedReqs.length > 0 && (
-        <div className="req-log">
-          <div className="req-log-title">Recent Requests ({submittedReqs.length})</div>
-          {submittedReqs.map(r => (
-            <div key={r.id} className="req-log-item">
-              <span className="req-log-fac" style={{ color: ORG_COLORS[r.org] }}>{r.facilityName}</span>
-              <span className="req-log-detail">
-                {Object.entries(r.blood).map(([t,v]) => `Blood ${t}: ${v}`).join(', ')}
-                {Object.keys(r.blood).length > 0 && Object.keys(r.plasma).length > 0 ? ' · ' : ''}
-                {Object.entries(r.plasma).map(([t,v]) => `Plasma ${t}: ${v}`).join(', ')}
-              </span>
-              <span className={`req-urgency-tag req-urgency-tag--${r.urgency}`}>{r.urgency}</span>
-            </div>
-          ))}
-        </div>
+          <div className="req-log">
+            <div className="req-log-title">Recent Requests ({submittedReqs.length})</div>
+            {submittedReqs.map(r => (
+                <div key={r.id} className={`req-log-item ${r.status === 'failed' ? 'req-log-item--failed' : ''}`}>
+                  <span className="req-log-fac" style={{ color: ORG_COLORS[r.org] }}>{r.facilityName}</span>
+                  <span className="req-log-detail">
+          {Object.entries(r.blood).map(([t, v]) => `Blood ${t}: ${v}`).join(', ')}
+                    {Object.keys(r.blood).length > 0 && Object.keys(r.plasma).length > 0 ? ' · ' : ''}
+                    {Object.entries(r.plasma).map(([t, v]) => `Plasma ${t}: ${v}`).join(', ')}
+        </span>
+                  <span className={`req-urgency-tag req-urgency-tag--${r.urgency}`}>{r.urgency}</span>
+                  {r.status === 'failed'
+                      ? <span style={{ color: '#e05c5c', fontSize: 11 }}>✗ {r.message}</span>
+                      : <span style={{ color: '#52a882', fontSize: 11 }}>✓ Fulfilled</span>
+                  }
+                </div>
+            ))}
+          </div>
       )}
 
       <div className="map-count">
