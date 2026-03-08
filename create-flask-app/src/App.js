@@ -118,6 +118,7 @@ function App() {
     const endpoint = mode === 'withdraw' ? '/api/withdraw' : '/api/deposit';
     setLoading(true);
     try {
+      console.log("hihihihih")
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
