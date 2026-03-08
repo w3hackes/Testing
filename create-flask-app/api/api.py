@@ -53,6 +53,13 @@ def create_app():
         "AB+": ["AB+", "AB-", "A+",  "A-",  "B+",  "B-",  "O+",  "O-"],
     }
 
+    PLASMA_COMP = {
+        "O": ["O"],
+        "A": ["A", "O"],
+        "B": ["B", "O"],
+        "AB-": ["AB", "A", "B", "O"],
+    }
+
     POPULATION_FREQ = {
         "O+": 37.4, "O-":  6.6,
         "A+": 35.7, "A-":  6.3,
@@ -85,6 +92,92 @@ def create_app():
     print(f"[startup] plasma_inventory: {plasma_inventory}")
 
     # ── send_type ──────────────────────────────────────────────────────────
+    # Plasma compatibility: patient type -> which donor types they can receive FROM
+    PLASMA_COMPATIBILITY = {
+        "A": ["A", "AB"],
+        "B": ["B", "AB"],
+        "O": ["O", "A", "B", "AB"],
+        "AB": ["AB"],
+    }
+
+    # Plasma population frequencies (same ABO groups, no Rh)
+    PLASMA_POPULATION_FREQ = {
+        "A": 42.0,
+        "B": 10.0,
+        "O": 44.0,
+        "AB": 4.0,
+    }
+    PLASMA_SCARCITY = {t: 1.0 / f for t, f in PLASMA_POPULATION_FREQ.items()}
+
+    def send_plasma(ptype, amount_int):
+        # Sync from Supabase
+        real_balances = ledger_repo.get_balance_by_blood_type(PLASMA_LEDGER_TABLE)
+        plasma_inventory.update(real_balances)
+        print(f"[send_plasma] ptype={ptype} amount={amount_int}")
+        print(f"[send_plasma] inventory: {plasma_inventory}")
+
+        donors = PLASMA_COMPATIBILITY.get(ptype)
+        if not donors:
+            return {"ok": False, "error": f"Unknown plasma type: {ptype}", "available": 0}
+
+        total_available = sum(plasma_inventory.get(d, 0) for d in donors)
+        if total_available < amount_int:
+            return {"ok": False, "error": "Not enough compatible plasma", "available": int(total_available)}
+
+        EXACT_MATCH_BONUS = 3.0
+        weights = {}
+        for d in donors:
+            w = 1.0 / PLASMA_SCARCITY[d]  # higher = more common = spend first
+            if d == ptype:
+                w *= EXACT_MATCH_BONUS
+            weights[d] = w
+        total_weight = sum(weights.values())
+
+        raw_shares = {d: amount_int * (weights[d] / total_weight) for d in donors}
+        capped = {d: min(raw_shares[d], plasma_inventory.get(d, 0)) for d in donors}
+
+        remaining = amount_int
+        taken = {d: 0 for d in donors}
+        simulated = {d: plasma_inventory.get(d, 0) for d in donors}
+
+        # Pass 1: floor shares
+        for d in donors:
+            take = int(capped[d])
+            taken[d] = take
+            simulated[d] -= take
+            remaining -= take
+
+        # Pass 2: largest fractional remainder
+        if remaining > 0:
+            for d in sorted(donors, key=lambda d: capped[d] - int(capped[d]), reverse=True):
+                if remaining <= 0:
+                    break
+                extra = min(remaining, simulated[d])
+                taken[d] += int(extra)
+                simulated[d] -= int(extra)
+                remaining -= int(extra)
+
+        # Pass 3: greedy from most common
+        if remaining > 0:
+            for d in sorted(donors, key=lambda d: PLASMA_SCARCITY[d]):
+                if remaining <= 0:
+                    break
+                extra = min(remaining, simulated[d])
+                taken[d] += int(extra)
+                simulated[d] -= int(extra)
+                remaining -= int(extra)
+
+        if remaining > 0:
+            return {"ok": False, "error": "Not enough compatible plasma", "available": int(total_available)}
+
+        # Commit
+        for d in donors:
+            plasma_inventory[d] = int(simulated[d])
+
+        used = {k: v for k, v in taken.items() if v > 0}
+        print(f"[send_plasma] allocated: {used}")
+        return {"ok": True, "taken": {d: int(v) for d, v in taken.items()}}
+
     def send_type(btype, amount_int):
         # Always sync from Supabase before allocating
         real_balances = ledger_repo.get_balance_by_blood_type(BLOOD_LEDGER_TABLE)
@@ -275,10 +368,11 @@ def create_app():
             return jsonify({"ok": False, "error": "Unexpected error", "message": str(e)}), 500
 
     @app.route("/api/plasma/withdraw", methods=["POST"])
+    @app.route("/api/plasma/withdraw", methods=["POST"])
     def plasma_withdraw():
-        data       = request.get_json() or {}
+        data = request.get_json() or {}
         blood_type = data.get("bloodType", "")
-        amount     = data.get("amount", 0)
+        amount = data.get("amount", 0)
 
         try:
             amount_int = int(amount)
@@ -287,24 +381,31 @@ def create_app():
             if blood_type not in plasma_inventory:
                 raise ValueError(f"Invalid plasma blood type: '{blood_type}'")
 
-            available = plasma_inventory[blood_type]
-            if available < amount_int:
+            result = send_plasma(blood_type, amount_int)
+            if not result["ok"]:
                 raise RuntimeError(
-                    f"Insufficient plasma: requested {amount_int} of {blood_type}, only {available} available."
+                    f"Insufficient plasma supply: requested {amount_int} units of "
+                    f"{blood_type}-compatible plasma, but only {result['available']} available."
                 )
 
-            plasma_inventory[blood_type] -= amount_int
-            ledger_repo.insert_event(PLASMA_LEDGER_TABLE, "withdraw", blood_type, amount_int)
+            # Log each donor type actually used
+            for donor_type, units_taken in result["taken"].items():
+                if units_taken > 0:
+                    ledger_repo.insert_event(PLASMA_LEDGER_TABLE, "withdraw", donor_type, int(units_taken))
 
             return jsonify({
                 "ok": True, "action": "plasma_withdraw",
                 "bloodType": blood_type, "amount": amount_int,
-                "message": f"Successfully withdrawn {amount_int} units of {blood_type} plasma.",
+                "taken": result["taken"],
+                "message": f"Successfully withdrawn {amount_int} units of {blood_type}-compatible plasma.",
             })
 
-        except ValueError  as e: return jsonify({"ok": False, "error": "Invalid request",     "message": str(e)}), 400
-        except RuntimeError as e: return jsonify({"ok": False, "error": "Insufficient supply", "message": str(e)}), 409
-        except Exception    as e: return jsonify({"ok": False, "error": "Unexpected error",    "message": str(e)}), 500
+        except ValueError as e:
+            return jsonify({"ok": False, "error": "Invalid request", "message": str(e)}), 400
+        except RuntimeError as e:
+            return jsonify({"ok": False, "error": "Insufficient supply", "message": str(e)}), 409
+        except Exception as e:
+            return jsonify({"ok": False, "error": "Unexpected error", "message": str(e)}), 500
 
     @app.route("/api/plasma/deposit", methods=["POST"])
     def plasma_deposit():
