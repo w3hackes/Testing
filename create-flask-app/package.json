@@ -10,6 +10,10 @@
     "@testing-library/user-event": "^13.5.0",
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+    "dotenv": "^17.3.1",
+>>>>>>> Stashed changes
 =======
     "dotenv": "^17.3.1",
 >>>>>>> Stashed changes
