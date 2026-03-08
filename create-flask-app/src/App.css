@@ -11,6 +11,52 @@
 .app-center {
   width: 100%;
   max-width: 440px;
+  margin: 1.5rem;
+}
+
+/* --- Tabs --- */
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0;
+  background: rgba(30, 41, 59, 0.6);
+  padding: 0.25rem;
+  border-radius: 14px;
+  width: 100%;
+}
+
+.tab {
+  flex: 1;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.65rem 1rem;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.tab:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tab.tab-active {
+  background: rgba(248, 250, 252, 0.95);
+  color: #0f172a;
+}
+
+.tab-panel {
+  text-align: center;
+}
+
+.tab-placeholder {
+  font-size: 0.95rem;
+  color: #64748b;
+  margin: 0.5rem 0 0 0;
 }
 
 /* --- Main heading --- */
@@ -163,7 +209,7 @@
 .form-container .form-row label {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #475569;
+  color: #212934;
   text-align: left;
 }
 
@@ -195,11 +241,16 @@
 .form-container .form-row select {
   cursor: pointer;
   appearance: none;
+  background-color: #fff;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 1.1rem;
   padding-right: 2.5rem;
+}
+
+.form-container .form-row select.has-value {
+  background-color: #f1f5f9 !important;
 }
 
 .form-container .btn.primary {

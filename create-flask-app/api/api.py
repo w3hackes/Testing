@@ -16,6 +16,8 @@ def create_app():
         "O-": 100
     }
 
+    plasma_inventory = {"A": 100, "B": 100, "AB": 100, "O": 100}
+
     @app.route("/")
     def home():
         return "Hello from Flask!"
@@ -46,6 +48,23 @@ def create_app():
 
         return jsonify({"ok": True, "action": "deposit", "bloodType": blood_type, "rhFactor": rh_factor, "amount": amount})
 
+    @app.route("/api/plasma/withdraw", methods=["POST"])
+    def plasma_withdraw():
+        data = request.get_json() or {}
+        blood_type = data.get("bloodType", "")
+        amount = data.get("amount", 0)
+        if blood_type in plasma_inventory:
+            plasma_inventory[blood_type] = max(0, plasma_inventory[blood_type] - int(amount))
+        return jsonify({"ok": True, "action": "plasma_withdraw", "bloodType": blood_type, "amount": amount})
+
+    @app.route("/api/plasma/deposit", methods=["POST"])
+    def plasma_deposit():
+        data = request.get_json() or {}
+        blood_type = data.get("bloodType", "")
+        amount = data.get("amount", 0)
+        if blood_type in plasma_inventory:
+            plasma_inventory[blood_type] += int(amount)
+        return jsonify({"ok": True, "action": "plasma_deposit", "bloodType": blood_type, "amount": amount})
 
     return app
 
