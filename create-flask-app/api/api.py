@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
+
 def create_app():
     app = Flask(__name__)
     CORS(app)  # <-- this is required
@@ -29,7 +30,7 @@ def create_app():
         rh_factor = data.get("rhFactor", "")
         amount = data.get("amount", 0)
 
-        blood_inventory[blood_type + rh_factor] -= int(amount)
+        send_type(blood_type+rh_factor, amount)
         # TODO: update inventory, validate, etc.
         for b in blood_inventory.values():
             print(b)
@@ -41,7 +42,7 @@ def create_app():
         blood_type = data.get("bloodType", "")
         rh_factor = data.get("rhFactor", "")
         amount = data.get("amount", 0)
-        blood_inventory[blood_type + rh_factor] += int(amount)
+        blood_inventory[blood_type+rh_factor] += amount
         # TODO: update inventory, validate, etc.
         for b in blood_inventory.values():
             print(b)
