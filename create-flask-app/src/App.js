@@ -168,7 +168,7 @@ function BloodSupplyHeatmap({ inventory, label }) {
 }
 
 // ── InventoryStats ─────────────────────────────────
-function InventoryStats({ bloodRows, plasmaRows }) {
+function InventoryStats({ bloodRows, plasmaRows, mask = v => v, isUnlocked = true }) {
   const totalBlood  = bloodRows.reduce((s, r)  => s + r.units, 0);
   const totalPlasma = plasmaRows.reduce((s, r) => s + r.units, 0);
   const lowAlerts   = [
@@ -187,7 +187,7 @@ function InventoryStats({ bloodRows, plasmaRows }) {
         </div>
         <div className="stat-card-body">
           <div className="stat-card-label">Total Blood Units</div>
-          <div className="stat-card-value">{totalBlood.toLocaleString()}</div>
+          <div className={`stat-card-value ${!isUnlocked ? 'stat-card-value--masked' : ''}`}>{mask(totalBlood.toLocaleString())}</div>
           <div className="stat-card-sub">{bloodRows.length} blood types tracked</div>
         </div>
       </div>
@@ -202,14 +202,14 @@ function InventoryStats({ bloodRows, plasmaRows }) {
         </div>
         <div className="stat-card-body">
           <div className="stat-card-label">Total Plasma Units</div>
-          <div className="stat-card-value">{totalPlasma.toLocaleString()}</div>
+          <div className={`stat-card-value ${!isUnlocked ? 'stat-card-value--masked' : ''}`}>{mask(totalPlasma.toLocaleString())}</div>
           <div className="stat-card-sub">{plasmaRows.length} plasma types tracked</div>
         </div>
       </div>
 
       {/* Low Supply Alerts */}
-      <div className={`stat-card ${lowAlerts.length > 0 ? 'stat-card--alert' : ''}`}>
-        <div className={`stat-card-icon ${lowAlerts.length > 0 ? 'stat-card-icon--alert' : 'stat-card-icon--ok'}`}>
+      <div className={`stat-card ${isUnlocked && lowAlerts.length > 0 ? 'stat-card--alert' : ''}`}>
+        <div className={`stat-card-icon ${isUnlocked && lowAlerts.length > 0 ? 'stat-card-icon--alert' : 'stat-card-icon--ok'}`}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
             <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -217,13 +217,15 @@ function InventoryStats({ bloodRows, plasmaRows }) {
         </div>
         <div className="stat-card-body">
           <div className="stat-card-label">Low Supply Alerts</div>
-          <div className={`stat-card-value ${lowAlerts.length > 0 ? 'stat-card-value--alert' : 'stat-card-value--ok'}`}>
-            {lowAlerts.length}
+          <div className={`stat-card-value ${!isUnlocked ? 'stat-card-value--masked' : isUnlocked && lowAlerts.length > 0 ? 'stat-card-value--alert' : 'stat-card-value--ok'}`}>
+            {mask(lowAlerts.length)}
           </div>
           <div className="stat-card-sub">
-            {lowAlerts.length === 0
-              ? 'All types adequately stocked'
-              : lowAlerts.map(r => `${r.category} ${r.type}`).join(', ')
+            {!isUnlocked
+              ? 'Set location to view alerts'
+              : lowAlerts.length === 0
+                ? 'All types adequately stocked'
+                : lowAlerts.map(r => `${r.category} ${r.type}`).join(', ')
             }
           </div>
         </div>
@@ -605,10 +607,10 @@ function RequestPanel({ facility, originLoc, preloadedTypes, onClose, onSubmit }
 }
 
 // ── Donation Facilities Map ────────────────────────
-function DonationMap({ preloadedTypes, onPreloadConsumed }) {
+function DonationMap({ preloadedTypes, onPreloadConsumed, onLocationSet, currentLocation }) {
   const [activeOrgs,      setActiveOrgs]      = useState(new Set(Object.keys(ORG_COLORS)));
-  const [searchQuery,     setSearchQuery]     = useState('');
-  const [selectedLoc,     setSelectedLoc]     = useState(null);
+  const [searchQuery,     setSearchQuery]     = useState(currentLocation?.name ?? '');
+  const [selectedLoc,     setSelectedLoc]     = useState(currentLocation ?? null);
   const [showDropdown,    setShowDropdown]    = useState(false);
   const [selectedFacility,setSelectedFacility]= useState(null);
   const [submittedReqs,   setSubmittedReqs]   = useState([]);
@@ -632,11 +634,13 @@ function DonationMap({ preloadedTypes, onPreloadConsumed }) {
     setSelectedLoc(loc);
     setSearchQuery(loc.name);
     setShowDropdown(false);
+    onLocationSet?.(loc);
   };
 
   const clearLocation = () => {
     setSelectedLoc(null);
     setSearchQuery('');
+    onLocationSet?.(null);
   };
 
   const visible = FACILITIES.filter(f => activeOrgs.has(f.org)).map(f => ({
@@ -907,7 +911,11 @@ function App() {
   const [plasmaInventory, setPlasmaInventory] = useState(null);
   const [inventoryLoading,setInventoryLoading]= useState(false);
   const [inventoryError,  setInventoryError]  = useState(null);
-  const [preloadedTypes,  setPreloadedTypes]  = useState(null); // { blood: ['A+','O-'], plasma: ['B-'] }
+  const [preloadedTypes,   setPreloadedTypes]   = useState(null);
+  const [facilityLocation, setFacilityLocation] = useState(null); // set when user picks their location
+
+  // Mask values until facility location is set
+  const mask = (val) => facilityLocation ? val : '—';
 
   const goTo = (tab, m = null, pm = null) => {
     setActiveTab(tab); setMode(m); setPlasmaMode(pm);
@@ -997,6 +1005,20 @@ function App() {
           <span className="navbar-badge">BMS</span>
         </div>
         <div className="navbar-right">
+          {facilityLocation
+            ? (
+              <div className="navbar-location">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#52a882" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <span className="navbar-location-name">{facilityLocation.name}</span>
+                <button className="navbar-location-clear" onClick={() => setFacilityLocation(null)} title="Clear location">×</button>
+              </div>
+            ) : (
+              <button className="navbar-location-unset" onClick={() => goTo('facilities')}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Set facility location
+              </button>
+            )
+          }
           <div className="nav-divider" />
           <div className="avatar">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="#9ba8b8">
@@ -1020,8 +1042,20 @@ function App() {
 
         {/* ── DASHBOARD ── */}
         {activeTab === 'dashboard' && (<>
-          <InventoryStats bloodRows={bloodRows} plasmaRows={plasmaRows} />
-          <CriticalAlerts bloodRows={bloodRows} plasmaRows={plasmaRows} onRequestSupply={goToFacilitiesWithTypes} />
+          {!facilityLocation && (
+            <div className="facility-lock-banner">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <span>Values are hidden until you set your facility location.</span>
+              <button className="facility-lock-link" onClick={() => goTo('facilities')}>
+                Set location in Facilities tab →
+              </button>
+            </div>
+          )}
+          <InventoryStats bloodRows={bloodRows} plasmaRows={plasmaRows} mask={mask} isUnlocked={!!facilityLocation} />
+          {facilityLocation && <CriticalAlerts bloodRows={bloodRows} plasmaRows={plasmaRows} onRequestSupply={goToFacilitiesWithTypes} />}
 
           <div className="section-card">
             <div className="section-header">
@@ -1049,17 +1083,19 @@ function App() {
                 <p className="inv-sub-label">Blood</p>
                 <table className="inv-table">
                   <thead><tr><th>Type</th><th>Units</th></tr></thead>
-                  <tbody>{bloodRows.map(r => <tr key={r.type}><td>{r.type}</td><td>{r.units}</td></tr>)}</tbody>
+                  <tbody>{bloodRows.map(r => <tr key={r.type}><td>{r.type}</td><td className={!facilityLocation ? 'masked-cell' : ''}>{mask(r.units)}</td></tr>)}</tbody>
                 </table>
                 <p className="inv-sub-label" style={{marginTop:'1.5rem'}}>Plasma</p>
                 <table className="inv-table">
                   <thead><tr><th>Type</th><th>Units</th></tr></thead>
-                  <tbody>{plasmaRows.map(r => <tr key={r.type}><td>{r.type}</td><td>{r.units}</td></tr>)}</tbody>
+                  <tbody>{plasmaRows.map(r => <tr key={r.type}><td>{r.type}</td><td className={!facilityLocation ? 'masked-cell' : ''}>{mask(r.units)}</td></tr>)}</tbody>
                 </table>
               </div>
               <div className="inv-charts">
-                <BarChart data={bloodRows} color="linear-gradient(to top,#8b1a1a,#e05c5c)" label="Blood Units by Type" />
-                <BarChart data={plasmaRows} color="linear-gradient(to top,#1a4a6b,#7eaacc)" label="Plasma Units by Type" />
+                {facilityLocation
+                  ? <><BarChart data={bloodRows} color="linear-gradient(to top,#8b1a1a,#e05c5c)" label="Blood Units by Type" /><BarChart data={plasmaRows} color="linear-gradient(to top,#1a4a6b,#7eaacc)" label="Plasma Units by Type" /></>
+                  : <div className="chart-locked"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#55636f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Charts locked until location is set</span></div>
+                }
               </div>
             </div>
           </div>
@@ -1074,10 +1110,10 @@ function App() {
                 <span className="heatmap-legend-dot" style={{background:'#3a8c5c', marginLeft:'0.75rem'}} /> Good &gt;50
               </div>
             </div>
-            <div className="heatmap-two-col">
-              <BloodSupplyHeatmap inventory={bloodRows}  label="Blood" />
-              <BloodSupplyHeatmap inventory={plasmaRows} label="Plasma" />
-            </div>
+            {facilityLocation
+              ? <div className="heatmap-two-col"><BloodSupplyHeatmap inventory={bloodRows} label="Blood" /><BloodSupplyHeatmap inventory={plasmaRows} label="Plasma" /></div>
+              : <div className="chart-locked chart-locked--tall"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#55636f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Heatmap locked until location is set</span></div>
+            }
           </div>
         </>)}
 
@@ -1169,6 +1205,13 @@ function App() {
                 {inventoryLoading?'Loading…':'↻ Refresh'}
               </button>
             </div>
+            {!facilityLocation && (
+              <div className="facility-lock-banner" style={{marginBottom:'1rem'}}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span>Values are hidden until you set your facility location.</span>
+                <button className="facility-lock-link" onClick={() => goTo('facilities')}>Set location in Facilities tab →</button>
+              </div>
+            )}
             {inventoryError && <p className="error-text">{inventoryError}</p>}
             {!inventoryLoading && !inventoryError && !bloodInventory && !plasmaInventory && (
               <p className="placeholder-text">Click "Refresh" to load current balances from the server.</p>
@@ -1178,17 +1221,19 @@ function App() {
                 <p className="inv-sub-label">Blood</p>
                 <table className="inv-table inv-table--full">
                   <thead><tr><th>Type</th><th>Balance (ml)</th></tr></thead>
-                  <tbody>{bloodRows.map(r=><tr key={r.type}><td>{r.type}</td><td>{r.units}</td></tr>)}</tbody>
+                  <tbody>{bloodRows.map(r=><tr key={r.type}><td>{r.type}</td><td className={!facilityLocation?'masked-cell':''}>{mask(r.units)}</td></tr>)}</tbody>
                 </table>
                 <p className="inv-sub-label" style={{marginTop:'1.75rem'}}>Plasma</p>
                 <table className="inv-table inv-table--full">
                   <thead><tr><th>Type</th><th>Balance (ml)</th></tr></thead>
-                  <tbody>{plasmaRows.map(r=><tr key={r.type}><td>{r.type}</td><td>{r.units}</td></tr>)}</tbody>
+                  <tbody>{plasmaRows.map(r=><tr key={r.type}><td>{r.type}</td><td className={!facilityLocation?'masked-cell':''}>{mask(r.units)}</td></tr>)}</tbody>
                 </table>
               </div>
               <div className="inv-charts">
-                <BarChart data={bloodRows} color="linear-gradient(to top,#8b1a1a,#e05c5c)" label="Blood Units by Type" />
-                <BarChart data={plasmaRows} color="linear-gradient(to top,#1a4a6b,#7eaacc)" label="Plasma Units by Type" />
+                {facilityLocation
+                  ? <><BarChart data={bloodRows} color="linear-gradient(to top,#8b1a1a,#e05c5c)" label="Blood Units by Type" /><BarChart data={plasmaRows} color="linear-gradient(to top,#1a4a6b,#7eaacc)" label="Plasma Units by Type" /></>
+                  : <div className="chart-locked chart-locked--tall"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#55636f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Charts locked until location is set</span></div>
+                }
               </div>
             </div>
           </div>
@@ -1201,7 +1246,12 @@ function App() {
               <span className="section-title">Donation Facilities</span>
               <span className="section-sub">{FACILITIES.length} locations across the US</span>
             </div>
-            <DonationMap preloadedTypes={preloadedTypes} onPreloadConsumed={() => setPreloadedTypes(null)} />
+            <DonationMap
+              preloadedTypes={preloadedTypes}
+              onPreloadConsumed={() => setPreloadedTypes(null)}
+              onLocationSet={(loc) => setFacilityLocation(loc)}
+              currentLocation={facilityLocation}
+            />
           </div>
         )}
 
