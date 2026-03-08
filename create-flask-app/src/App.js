@@ -11,6 +11,10 @@ function App() {
     const [plasmaBloodType, setPlasmaBloodType] = useState('');
     const [plasmaAmount, setPlasmaAmount] = useState('');
     const [loading, setLoading] = useState(false);
+    const [bloodInventory, setBloodInventory] = useState(null);
+    const [plasmaInventory, setPlasmaInventory] = useState(null);
+    const [inventoryLoading, setInventoryLoading] = useState(false);
+    const [inventoryError, setInventoryError] = useState(null);
 
     const withDrawBlood = () => setMode('withdraw');
     const depositBlood = () => setMode('deposit');
@@ -27,6 +31,34 @@ function App() {
         setPlasmaMode(null);
         setPlasmaBloodType('');
         setPlasmaAmount('');
+    };
+
+    const loadInventory = async () => {
+        setInventoryLoading(true);
+        setInventoryError(null);
+        try {
+            const [bloodRes, plasmaRes] = await Promise.all([
+                fetch('/api/inventory/blood'),
+                fetch('/api/inventory/plasma'),
+            ]);
+
+            if (!bloodRes.ok || !plasmaRes.ok) {
+                throw new Error('Failed to load inventory');
+            }
+
+            const [bloodData, plasmaData] = await Promise.all([
+                bloodRes.json(),
+                plasmaRes.json(),
+            ]);
+
+            setBloodInventory(bloodData);
+            setPlasmaInventory(plasmaData);
+        } catch (err) {
+            console.error(err);
+            setInventoryError('Could not load inventory. Please try again.');
+        } finally {
+            setInventoryLoading(false);
+        }
     };
 
     const handleGo = async () => {
@@ -69,7 +101,7 @@ function App() {
         <div className="App">
             <div className="app-center">
                 <div className="main-heading">
-                    <h1>Blood Bank Management System(BMS)</h1>
+                    <h1>Blood Bank Management System (BMS)</h1>
                     <p className="subtext">Manage donations, withdrawals, and blood inventory</p>
                 </div>
 
@@ -219,7 +251,70 @@ function App() {
                     {activeTab === 'inventory' && (
                         <div className="tab-panel">
                             <p className="section-title">Inventory</p>
-                            <p className="tab-placeholder">View and manage blood inventory by type and Rh factor.</p>
+
+                            <div className="form-row">
+                                <button
+                                    className="btn go"
+                                    onClick={loadInventory}
+                                    disabled={inventoryLoading}
+                                >
+                                    {inventoryLoading ? 'Loading…' : 'Refresh inventory'}
+                                </button>
+                            </div>
+
+                            {inventoryError && (
+                                <p className="error-text">{inventoryError}</p>
+                            )}
+
+                            {bloodInventory && (
+                                <div className="inventory-section">
+                                    <h2>Blood</h2>
+                                    <table className="inventory-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Type</th>
+                                                <th>Balance (ml)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Object.entries(bloodInventory).map(([type, value]) => (
+                                                <tr key={type}>
+                                                    <td>{type}</td>
+                                                    <td>{value}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {plasmaInventory && (
+                                <div className="inventory-section">
+                                    <h2>Plasma</h2>
+                                    <table className="inventory-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Type</th>
+                                                <th>Balance (ml)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Object.entries(plasmaInventory).map(([type, value]) => (
+                                                <tr key={type}>
+                                                    <td>{type}</td>
+                                                    <td>{value}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {!inventoryLoading && !inventoryError && !bloodInventory && !plasmaInventory && (
+                                <p className="tab-placeholder">
+                                    Click &ldquo;Refresh inventory&rdquo; to load current balances.
+                                </p>
+                            )}
                         </div>
                     )}
                 </header>
