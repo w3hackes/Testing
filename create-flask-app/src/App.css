@@ -117,6 +117,12 @@
   box-shadow: 0 6px 20px rgba(25, 123, 30, 0.45);
 }
 
+.btn.go:disabled {
+  background: #cbd5e1;
+  color: #64748b;
+  box-shadow: none;
+}
+
 
 .btn.secondary {
   background: #f1f5f9;
