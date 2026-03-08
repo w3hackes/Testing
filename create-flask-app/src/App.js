@@ -64,7 +64,7 @@ function BarChart({ data, color, label }) {
 // ── Critical Alert Banner ──────────────────────────
 const CRITICAL_THRESHOLD = 50;
 
-function CriticalAlerts({ bloodRows, plasmaRows }) {
+function CriticalAlerts({ bloodRows, plasmaRows, onRequestSupply }) {
   const lowBlood  = bloodRows.filter(r => r.units < CRITICAL_THRESHOLD);
   const lowPlasma = plasmaRows.filter(r => r.units < CRITICAL_THRESHOLD);
   const allLow    = [
@@ -73,6 +73,20 @@ function CriticalAlerts({ bloodRows, plasmaRows }) {
   ];
 
   if (allLow.length === 0) return null;
+
+  const handleRequestAll = () => {
+    onRequestSupply(
+      lowBlood.map(r => r.type),
+      lowPlasma.map(r => r.type)
+    );
+  };
+
+  const handleRequestOne = (item) => {
+    onRequestSupply(
+      item.category === 'Blood'  ? [item.type] : [],
+      item.category === 'Plasma' ? [item.type] : []
+    );
+  };
 
   return (
     <div className="critical-banner">
@@ -84,13 +98,24 @@ function CriticalAlerts({ bloodRows, plasmaRows }) {
           </svg>
           Critical Stock Alert — {allLow.length} type{allLow.length > 1 ? 's' : ''} below {CRITICAL_THRESHOLD} units
         </div>
-        <span className="critical-banner-sub">Immediate restocking recommended</span>
+        <button className="critical-request-all-btn" onClick={handleRequestAll}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          Request All
+        </button>
       </div>
       <div className="critical-pills">
         {allLow.map(r => (
           <div key={`${r.category}-${r.type}`} className="critical-pill">
             <span className="critical-pill-type">{r.category} {r.type}</span>
             <span className="critical-pill-units">{r.units} units</span>
+            <button className="critical-pill-btn" onClick={() => handleRequestOne(r)}>
+              Request
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </button>
           </div>
         ))}
       </div>
@@ -302,12 +327,292 @@ const MEDICAL_LOCATIONS = [
   { id: 'ml30', name: 'Mayo Clinic',                          city: 'Rochester, MN',      lat: 44.0234, lng: -92.4669 },
 ];
 
+// ── Blood type options ─────────────────────────────
+const BLOOD_TYPES = ['A+','A-','B+','B-','O+','O-','AB+','AB-'];
+const PLASMA_TYPES = ['A+','A-','B+','B-','O+','O-','AB+','AB-'];
+
+// ── Request Panel ──────────────────────────────────
+function RequestPanel({ facility, originLoc, preloadedTypes, onClose, onSubmit }) {
+  // Derive initial reqType from preload
+  const initReqType = () => {
+    if (!preloadedTypes) return 'blood';
+    const hasBlood  = preloadedTypes.blood.length  > 0;
+    const hasPlasma = preloadedTypes.plasma.length > 0;
+    if (hasBlood && hasPlasma) return 'both';
+    if (hasPlasma) return 'plasma';
+    return 'blood';
+  };
+
+  const [reqType,          setReqType]          = useState(initReqType);
+  const [bloodSelections,  setBloodSelections]  = useState(() =>
+    preloadedTypes ? Object.fromEntries(preloadedTypes.blood.map(t => [t, ''])) : {}
+  );
+  const [plasmaSelections, setPlasmaSelections] = useState(() =>
+    preloadedTypes ? Object.fromEntries(preloadedTypes.plasma.map(t => [t, ''])) : {}
+  );
+  const [submitted, setSubmitted] = useState(false);
+  const [urgency,   setUrgency]   = useState(preloadedTypes ? 'urgent' : 'standard');
+  const orgColor = ORG_COLORS[facility.org];
+
+  const toggleType = (category, type) => {
+    const setter = category === 'blood' ? setBloodSelections : setPlasmaSelections;
+    setter(prev => {
+      const next = { ...prev };
+      if (next[type] !== undefined) { delete next[type]; } else { next[type] = ''; }
+      return next;
+    });
+  };
+
+  const setAmount = (category, type, val) => {
+    const setter = category === 'blood' ? setBloodSelections : setPlasmaSelections;
+    setter(prev => ({ ...prev, [type]: val }));
+  };
+
+  const needsBlood  = reqType === 'blood'  || reqType === 'both';
+  const needsPlasma = reqType === 'plasma' || reqType === 'both';
+
+  const bloodItems  = Object.entries(bloodSelections);
+  const plasmaItems = Object.entries(plasmaSelections);
+
+  const hasOrigin = !!originLoc;
+
+  const canSubmit =
+    hasOrigin &&
+    (needsBlood  ? bloodItems.length  > 0 && bloodItems.every(([,v])  => v > 0) : true) &&
+    (needsPlasma ? plasmaItems.length > 0 && plasmaItems.every(([,v]) => v > 0) : true) &&
+    (bloodItems.length + plasmaItems.length > 0);
+
+  const handleSubmit = () => {
+    const payload = {
+      facilityId:   facility.id,
+      facilityName: facility.name,
+      org:          facility.org,
+      originName:   originLoc?.name ?? 'Unknown',
+      urgency,
+      blood:  needsBlood  ? bloodSelections  : {},
+      plasma: needsPlasma ? plasmaSelections : {},
+    };
+    onSubmit(payload);
+    setSubmitted(true);
+  };
+
+  if (submitted) return (
+    <div className="req-panel req-panel--success">
+      <div className="req-success-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#52a882" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+      </div>
+      <div className="req-success-title">Request Submitted</div>
+      <div className="req-success-sub">
+        Your request to <span style={{color: orgColor}}>{facility.name}</span> has been sent.
+      </div>
+      <button className="btn btn--secondary req-close-btn" onClick={onClose}>Close</button>
+    </div>
+  );
+
+  return (
+    <div className="req-panel">
+      {/* Header */}
+      <div className="req-panel-header" style={{ borderLeftColor: orgColor }}>
+        <div className="req-panel-header-top">
+          <div>
+            <div className="req-panel-org" style={{ color: orgColor }}>{facility.org}</div>
+            <div className="req-panel-name">{facility.name}</div>
+            <div className="req-panel-addr">{facility.address}</div>
+          </div>
+          <button className="req-close-x" onClick={onClose}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        {originLoc && (
+          <div className="req-panel-dist">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4a8fbd" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            {distanceMiles(originLoc.lat, originLoc.lng, facility.lat, facility.lng).toFixed(1)} mi from {originLoc.name}
+          </div>
+        )}
+      </div>
+
+      <div className="req-panel-body">
+
+        {/* Preload indicator */}
+        {preloadedTypes && (
+          <div className="req-preload-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            Auto-filled from dashboard alert — review and enter units below
+          </div>
+        )}
+
+        {/* Step 1 — Request type */}
+        <div className="req-section">
+          <div className="req-section-label">
+            <span className="req-step">1</span> What do you need?
+          </div>
+          <div className="req-type-row">
+            {[['blood','Blood'],['plasma','Plasma'],['both','Both']].map(([val, label]) => (
+              <button
+                key={val}
+                className={`req-type-btn ${reqType === val ? 'req-type-btn--on' : ''}`}
+                onClick={() => setReqType(val)}
+              >
+                {val === 'blood'  && <svg width="13" height="13" viewBox="0 0 24 24" fill={reqType===val?'#e05c5c':'currentColor'}><path d="M12 2C12 2 5 9.5 5 14a7 7 0 0014 0C19 9.5 12 2 12 2z"/></svg>}
+                {val === 'plasma' && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={reqType===val?'#7eaacc':'currentColor'} strokeWidth="2"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/></svg>}
+                {val === 'both'   && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={reqType===val?'#d4a22a':'currentColor'} strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>}
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Step 2 — Blood types */}
+        {needsBlood && (
+          <div className="req-section">
+            <div className="req-section-label">
+              <span className="req-step req-step--blood">2{needsPlasma ? 'a' : ''}</span> Select blood types
+            </div>
+            <div className="req-type-grid">
+              {BLOOD_TYPES.map(t => (
+                <button
+                  key={t}
+                  className={`req-blood-chip ${bloodSelections[t] !== undefined ? 'req-blood-chip--on' : ''}`}
+                  onClick={() => toggleType('blood', t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            {bloodItems.length > 0 && (
+              <div className="req-amounts">
+                {bloodItems.map(([type]) => (
+                  <div key={type} className="req-amount-row">
+                    <span className="req-amount-label">{type}</span>
+                    <input
+                      className="req-amount-input"
+                      type="number" min="1" placeholder="Units"
+                      value={bloodSelections[type]}
+                      onChange={e => setAmount('blood', type, e.target.value)}
+                    />
+                    <span className="req-amount-unit">units</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 3 — Plasma types */}
+        {needsPlasma && (
+          <div className="req-section">
+            <div className="req-section-label">
+              <span className="req-step req-step--plasma">{needsBlood ? '2b' : '2'}</span> Select plasma types
+            </div>
+            <div className="req-type-grid">
+              {PLASMA_TYPES.map(t => (
+                <button
+                  key={t}
+                  className={`req-plasma-chip ${plasmaSelections[t] !== undefined ? 'req-plasma-chip--on' : ''}`}
+                  onClick={() => toggleType('plasma', t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            {plasmaItems.length > 0 && (
+              <div className="req-amounts">
+                {plasmaItems.map(([type]) => (
+                  <div key={type} className="req-amount-row">
+                    <span className="req-amount-label">{type}</span>
+                    <input
+                      className="req-amount-input"
+                      type="number" min="1" placeholder="Units"
+                      value={plasmaSelections[type]}
+                      onChange={e => setAmount('plasma', type, e.target.value)}
+                    />
+                    <span className="req-amount-unit">units</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step — Urgency */}
+        {(bloodItems.length + plasmaItems.length) > 0 && (
+          <div className="req-section">
+            <div className="req-section-label">
+              <span className="req-step">3</span> Urgency level
+            </div>
+            <div className="req-type-row">
+              {[['standard','Standard'],['urgent','Urgent'],['critical','Critical']].map(([val, label]) => (
+                <button
+                  key={val}
+                  className={`req-urgency-btn req-urgency-btn--${val} ${urgency === val ? 'req-urgency-btn--on' : ''}`}
+                  onClick={() => setUrgency(val)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Summary */}
+        {canSubmit && (
+          <div className="req-summary">
+            <div className="req-summary-title">Request Summary</div>
+            {bloodItems.map(([t,v]) => (
+              <div key={t} className="req-summary-row">
+                <span className="req-summary-cat req-summary-cat--blood">Blood {t}</span>
+                <span className="req-summary-val">{v} units</span>
+              </div>
+            ))}
+            {plasmaItems.map(([t,v]) => (
+              <div key={t} className="req-summary-row">
+                <span className="req-summary-cat req-summary-cat--plasma">Plasma {t}</span>
+                <span className="req-summary-val">{v} units</span>
+              </div>
+            ))}
+            <div className="req-summary-row req-summary-row--urgency">
+              <span className="req-summary-cat">Urgency</span>
+              <span className={`req-urgency-tag req-urgency-tag--${urgency}`}>{urgency}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Submit */}
+        {!hasOrigin && (
+          <div className="req-no-origin-warning">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            You must search and select your medical facility location before submitting a request.
+          </div>
+        )}
+        <button
+          className="btn btn--submit-req"
+          disabled={!canSubmit}
+          onClick={handleSubmit}
+        >
+          Submit Request to {facility.org}
+        </button>
+
+      </div>
+    </div>
+  );
+}
+
 // ── Donation Facilities Map ────────────────────────
-function DonationMap() {
-  const [activeOrgs,   setActiveOrgs]   = useState(new Set(Object.keys(ORG_COLORS)));
-  const [searchQuery,  setSearchQuery]  = useState('');
-  const [selectedLoc,  setSelectedLoc]  = useState(null);
-  const [showDropdown, setShowDropdown] = useState(false);
+function DonationMap({ preloadedTypes, onPreloadConsumed }) {
+  const [activeOrgs,      setActiveOrgs]      = useState(new Set(Object.keys(ORG_COLORS)));
+  const [searchQuery,     setSearchQuery]     = useState('');
+  const [selectedLoc,     setSelectedLoc]     = useState(null);
+  const [showDropdown,    setShowDropdown]    = useState(false);
+  const [selectedFacility,setSelectedFacility]= useState(null);
+  const [submittedReqs,   setSubmittedReqs]   = useState([]);
+  const consumedRef = useState(false);
 
   const toggleOrg = (org) => {
     setActiveOrgs(prev => {
@@ -336,17 +641,17 @@ function DonationMap() {
 
   const visible = FACILITIES.filter(f => activeOrgs.has(f.org)).map(f => ({
     ...f,
-    distance: selectedLoc
-      ? distanceMiles(selectedLoc.lat, selectedLoc.lng, f.lat, f.lng)
-      : null,
+    distance: selectedLoc ? distanceMiles(selectedLoc.lat, selectedLoc.lng, f.lat, f.lng) : null,
   }));
 
-  // Sort by distance when a location is selected
-  const sorted = selectedLoc
-    ? [...visible].sort((a, b) => a.distance - b.distance)
-    : visible;
-
+  const sorted = selectedLoc ? [...visible].sort((a, b) => a.distance - b.distance) : visible;
   const nearest = selectedLoc ? sorted[0] : null;
+
+  const handleRequestSubmit = (payload) => {
+    setSubmittedReqs(prev => [...prev, { ...payload, id: Date.now() }]);
+    console.log('Blood request submitted:', payload);
+    // TODO: POST to /api/facility-request
+  };
 
   return (
     <div className="map-wrapper">
@@ -361,7 +666,7 @@ function DonationMap() {
         <input
           className="loc-search-input"
           type="text"
-          placeholder="Search your medical facility…"
+          placeholder="Search your medical facility to see distances…"
           value={searchQuery}
           onChange={e => { setSearchQuery(e.target.value); setShowDropdown(true); setSelectedLoc(null); }}
           onFocus={() => setShowDropdown(true)}
@@ -373,8 +678,6 @@ function DonationMap() {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         )}
-
-        {/* Dropdown */}
         {showDropdown && filteredLocs.length > 0 && (
           <div className="loc-dropdown">
             {filteredLocs.map(loc => (
@@ -395,8 +698,39 @@ function DonationMap() {
         )}
       </div>
 
-      {/* ── Nearest facility banner ── */}
-      {nearest && (
+      {/* ── Preload banner — shown when redirected from dashboard alert ── */}
+      {preloadedTypes && !selectedFacility && (
+        <div className="preload-banner">
+          <div className="preload-banner-left">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d4a22a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <div>
+              <div className="preload-banner-title">Critical supply request ready</div>
+              <div className="preload-banner-sub">
+                Types preloaded:&nbsp;
+                {[
+                  ...preloadedTypes.blood.map(t  => `Blood ${t}`),
+                  ...preloadedTypes.plasma.map(t => `Plasma ${t}`),
+                ].join(', ')}
+              </div>
+            </div>
+          </div>
+          <div className="preload-banner-right">Click any pin to open the request panel</div>
+        </div>
+      )}
+
+      {/* ── Hint when no facility selected ── */}
+      {!selectedFacility && !preloadedTypes && (
+        <div className="map-hint">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4a8fbd" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Click any pin on the map to open a supply request
+        </div>
+      )}
+
+      {/* ── Nearest banner ── */}
+      {nearest && !selectedFacility && (
         <div className="nearest-banner">
           <div className="nearest-banner-left">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#52a882" strokeWidth="2.5" strokeLinecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
@@ -424,70 +758,96 @@ function DonationMap() {
         ))}
       </div>
 
-      {/* ── Map ── */}
-      <div className="map-container">
-        <MapContainer
-          center={[38.5, -96]}
-          zoom={4}
-          style={{ height: '100%', width: '100%' }}
-          scrollWheelZoom={true}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      {/* ── Split: map + request panel ── */}
+      <div className={`map-split ${selectedFacility ? 'map-split--open' : ''}`}>
+
+        {/* Map */}
+        <div className="map-container">
+          <MapContainer center={[38.5, -96]} zoom={4} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
+
+            {selectedLoc && (
+              <CircleMarker center={[selectedLoc.lat, selectedLoc.lng]} radius={10}
+                pathOptions={{ fillColor: '#ffffff', fillOpacity: 1, color: '#4a8fbd', weight: 3 }}>
+                <Tooltip direction="top" offset={[0, -12]} opacity={1}>
+                  <div className="map-tooltip">
+                    <div className="map-tooltip-org" style={{ color: '#4a8fbd' }}>Your Location</div>
+                    <div className="map-tooltip-name">{selectedLoc.name}</div>
+                    <div className="map-tooltip-addr">{selectedLoc.city}</div>
+                  </div>
+                </Tooltip>
+              </CircleMarker>
+            )}
+
+            {sorted.map(f => (
+              <CircleMarker
+                key={f.id}
+                center={[f.lat, f.lng]}
+                radius={selectedFacility?.id === f.id ? 13 : (f.id === nearest?.id ? 11 : 8)}
+                pathOptions={{
+                  fillColor: ORG_COLORS[f.org],
+                  fillOpacity: selectedFacility && selectedFacility.id !== f.id ? 0.4 : 0.95,
+                  color: selectedFacility?.id === f.id ? '#fff' : (f.id === nearest?.id ? '#fff' : 'rgba(255,255,255,0.4)'),
+                  weight: selectedFacility?.id === f.id ? 3 : (f.id === nearest?.id ? 2 : 1),
+                }}
+                eventHandlers={{ click: () => setSelectedFacility(f) }}
+              >
+                <Tooltip direction="top" offset={[0, -10]} opacity={1}>
+                  <div className="map-tooltip">
+                    <div className="map-tooltip-org" style={{ color: ORG_COLORS[f.org] }}>{f.org}</div>
+                    <div className="map-tooltip-name">{f.name}</div>
+                    <div className="map-tooltip-addr">{f.address}</div>
+                    {f.distance !== null && (
+                      <div className="map-tooltip-dist">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4a8fbd" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        {f.distance.toFixed(1)} mi away
+                      </div>
+                    )}
+                    <div className="map-tooltip-click">Click to request supply</div>
+                  </div>
+                </Tooltip>
+              </CircleMarker>
+            ))}
+          </MapContainer>
+        </div>
+
+        {/* Request Panel */}
+        {selectedFacility && (
+          <RequestPanel
+            facility={selectedFacility}
+            originLoc={selectedLoc}
+            preloadedTypes={preloadedTypes}
+            onClose={() => { setSelectedFacility(null); }}
+            onSubmit={handleRequestSubmit}
           />
-
-          {/* User's selected hospital pin */}
-          {selectedLoc && (
-            <CircleMarker
-              center={[selectedLoc.lat, selectedLoc.lng]}
-              radius={10}
-              pathOptions={{ fillColor: '#ffffff', fillOpacity: 1, color: '#4a8fbd', weight: 3 }}
-            >
-              <Tooltip direction="top" offset={[0, -12]} opacity={1} permanent={false}>
-                <div className="map-tooltip">
-                  <div className="map-tooltip-org" style={{ color: '#4a8fbd' }}>Your Location</div>
-                  <div className="map-tooltip-name">{selectedLoc.name}</div>
-                  <div className="map-tooltip-addr">{selectedLoc.city}</div>
-                </div>
-              </Tooltip>
-            </CircleMarker>
-          )}
-
-          {/* Donation facility pins */}
-          {sorted.map(f => (
-            <CircleMarker
-              key={f.id}
-              center={[f.lat, f.lng]}
-              radius={f.id === nearest?.id ? 11 : 8}
-              pathOptions={{
-                fillColor: ORG_COLORS[f.org],
-                fillOpacity: 0.92,
-                color: f.id === nearest?.id ? '#fff' : 'rgba(255,255,255,0.5)',
-                weight: f.id === nearest?.id ? 2.5 : 1,
-              }}
-            >
-              <Tooltip direction="top" offset={[0, -10]} opacity={1}>
-                <div className="map-tooltip">
-                  <div className="map-tooltip-org" style={{ color: ORG_COLORS[f.org] }}>{f.org}</div>
-                  <div className="map-tooltip-name">{f.name}</div>
-                  <div className="map-tooltip-addr">{f.address}</div>
-                  {f.distance !== null && (
-                    <div className="map-tooltip-dist">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4a8fbd" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                      {f.distance.toFixed(1)} miles from {selectedLoc.name.split(' ')[0]} {selectedLoc.name.split(' ')[1]}
-                    </div>
-                  )}
-                </div>
-              </Tooltip>
-            </CircleMarker>
-          ))}
-        </MapContainer>
+        )}
       </div>
+
+      {/* Submitted requests log */}
+      {submittedReqs.length > 0 && (
+        <div className="req-log">
+          <div className="req-log-title">Recent Requests ({submittedReqs.length})</div>
+          {submittedReqs.map(r => (
+            <div key={r.id} className="req-log-item">
+              <span className="req-log-fac" style={{ color: ORG_COLORS[r.org] }}>{r.facilityName}</span>
+              <span className="req-log-detail">
+                {Object.entries(r.blood).map(([t,v]) => `Blood ${t}: ${v}`).join(', ')}
+                {Object.keys(r.blood).length > 0 && Object.keys(r.plasma).length > 0 ? ' · ' : ''}
+                {Object.entries(r.plasma).map(([t,v]) => `Plasma ${t}: ${v}`).join(', ')}
+              </span>
+              <span className={`req-urgency-tag req-urgency-tag--${r.urgency}`}>{r.urgency}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="map-count">
         Showing {sorted.length} of {FACILITIES.length} facilities
         {selectedLoc && ` · distances from ${selectedLoc.name}`}
+        {selectedFacility && ` · ${selectedFacility.name} selected`}
       </div>
     </div>
   );
@@ -508,11 +868,18 @@ function App() {
   const [plasmaInventory, setPlasmaInventory] = useState(null);
   const [inventoryLoading,setInventoryLoading]= useState(false);
   const [inventoryError,  setInventoryError]  = useState(null);
+  const [preloadedTypes,  setPreloadedTypes]  = useState(null); // { blood: ['A+','O-'], plasma: ['B-'] }
 
   const goTo = (tab, m = null, pm = null) => {
     setActiveTab(tab); setMode(m); setPlasmaMode(pm);
     setBloodType(''); setRhFactor(''); setAmount('');
     setPlasmaBloodType(''); setPlasmaAmount('');
+  };
+
+  // Called from CriticalAlerts — redirect to Facilities and preload types
+  const goToFacilitiesWithTypes = (bloodTypes, plasmaTypes) => {
+    setPreloadedTypes({ blood: bloodTypes, plasma: plasmaTypes });
+    setActiveTab('facilities');
   };
 
   const loadInventory = async () => {
@@ -536,12 +903,7 @@ function App() {
     const endpoint = mode === 'withdraw' ? '/api/withdraw' : '/api/deposit';
     setLoading(true);
     try {
-      console.log("hihihihih")
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error('Request failed');
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
@@ -620,7 +982,7 @@ function App() {
         {/* ── DASHBOARD ── */}
         {activeTab === 'dashboard' && (<>
           <InventoryStats bloodRows={bloodRows} plasmaRows={plasmaRows} />
-          <CriticalAlerts bloodRows={bloodRows} plasmaRows={plasmaRows} />
+          <CriticalAlerts bloodRows={bloodRows} plasmaRows={plasmaRows} onRequestSupply={goToFacilitiesWithTypes} />
 
           <div className="section-card">
             <div className="section-header">
@@ -800,7 +1162,7 @@ function App() {
               <span className="section-title">Donation Facilities</span>
               <span className="section-sub">{FACILITIES.length} locations across the US</span>
             </div>
-            <DonationMap />
+            <DonationMap preloadedTypes={preloadedTypes} onPreloadConsumed={() => setPreloadedTypes(null)} />
           </div>
         )}
 
